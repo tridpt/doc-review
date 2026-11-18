@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DocReview Studio — Trạm Rà Soát Chất Lượng, Bình Luận, Track Changes & Phê Duyệt Tài Liệu</title>
+  <link rel="stylesheet" href="/styles.css?v=3.1" />
+</head>
+<body>
+  <!-- Vùng phủ Kéo-Thả Tệp Toàn Màn Hình -->
+  <div id="dropOverlay" class="drop-overlay hidden">
+    <div class="drop-box">
+      <div class="drop-icon">📂</div>
+      <h2>Thả tệp vào đây để nạp vào DocReview Studio v2.0</h2>
+      <p>Hỗ trợ Microsoft Word (<strong>.docx</strong> kèm Comment gốc), Tài liệu <strong>.pdf</strong>, Markdown (<strong>.md</strong>) và Văn bản (<strong>.txt</strong>)</p>
+    </div>
+  </div>
+
+  <!-- Thanh Công Cụ Nổi Khi Bôi Đen Văn Bản -->
+  <div id="selectionToolbar" class="selection-toolbar hidden">
+    <button type="button" id="btnQuickComment" class="sel-btn sel-btn-comment">
+      <span>💬</span> Bình luận đoạn chọn
+    </button>
+    <span class="sel-divider"></span>
+    <button type="button" id="btnQuickSuggest" class="sel-btn sel-btn-suggest">
+      <span>✏️</span> Đề xuất sửa (Track Change)
+    </button>
+  </div>
+
+  <!-- TOP COMMAND BAR -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="brand-logo">📋</div>
+      <div class="brand-title-row">
+        <h1>DocReview <span class="ver-tag">v3.0</span></h1>
+        <span class="port-pill">PORT 4185</span>
+        <div id="livePresenceBar" class="presence-bar" title="Đồng bộ thời gian thực qua SSE">
+          <span class="presence-dot"></span>
+          <span id="presenceText">1 trực tuyến</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="topbar-persona">
+      <select id="personaSelect" class="persona-select" title="Vai trò người đang thao tác">
+        <option value="Minh Anh|Product Lead">👩‍💼 Minh Anh (Product Lead)</option>
+        <option value="Quốc Bảo|Tech Architect" selected>👨‍💻 Quốc Bảo (Tech Architect)</option>
+        <option value="Hải Đăng|QA / Security Lead">🛡️ Hải Đăng (QA / Security Lead)</option>
+        <option value="Thu Hà|Compliance Auditor">⚖️ Thu Hà (Compliance Auditor)</option>
+        <option value="PGS. Lê Hoàng|Peer Reviewer">🎓 PGS. Lê Hoàng (Peer Reviewer)</option>
+        <option value="CUSTOM">✨ Tùy chỉnh tên & vai trò...</option>
+      </select>
+      <input id="customPersonaInput" type="text" class="persona-custom hidden" placeholder="Tên | Vai trò" />
+    </div>
+
+    <div class="topbar-actions">
+      <button type="button" id="btnCommandPalette" class="btn btn-secondary" title="Mở Bảng Lệnh Nhanh (Ctrl+K)">
+        ⚡ Ctrl+K
+      </button>
+      <input type="file" id="fileInput" accept=".docx,.pdf,.md,.markdown,.txt" class="hidden" />
+      <button type="button" id="btnImportFile" class="btn btn-secondary" title="Tải lên tệp .docx, .pdf, .md hoặc .txt">
+        📂 Nhập tệp
+      </button>
+      <button type="button" id="btnOpenGovernance" class="btn btn-secondary" title="Tạo Bộ tiêu chí riêng & Từ điển Thuật ngữ bắt buộc">
+        🛠️ Bộ chuẩn
+      </button>
+      <button type="button" id="btnNewDoc" class="btn btn-secondary">
+        ➕ Tạo mới
+      </button>
+      <button type="button" id="btnAiReview" class="btn btn-accent" title="Phân tích chuyên sâu tùy chọn bằng OpenAI / Gemini">
+        🤖 AI Review
+      </button>
+      <div class="dropdown-wrap">
+        <button type="button" id="btnExportMenu" class="btn btn-primary">
+          📤 Xuất bản ▾
+        </button>
+        <div id="exportDropdown" class="dropdown-menu hidden">
+          <button type="button" data-export="docx-full">📘 Xuất Word (.DOCX) kèm Comment & Biên bản</button>
+          <button type="button" data-export="docx-clean">📄 Xuất Word (.DOCX) bản sạch</button>
+          <button type="button" data-export="md">📝 Tải tệp Markdown (.MD)</button>
+          <button type="button" data-export="certificate">🖨️ Mở Biên bản Nghiệm thu (HTML / In PDF)</button>
+          <button type="button" data-export="json">🗄️ Xuất gói Hồ sơ Kiểm toán (.JSON)</button>
+        </div>
+      </div>
+      <button type="button" id="btnThemeToggle" class="btn btn-icon" title="Chuyển chế độ Sáng / Tối">🌙</button>
+    </div>
+  </header>
+
+  <!-- 3-PANE WORKSPACE -->
+  <div class="workspace-grid">
+    <!-- LEFT SIDEBAR: DOCUMENT LIST -->
+    <aside class="sidebar-left">
+      <div class="sidebar-header">
+        <div class="sidebar-title-row">
+          <h2>Kho Tài Liệu (<span id="docCountLabel">0</span>)</h2>
+          <button type="button" id="btnResetDemo" class="link-btn" title="Khôi phục 4 tài liệu mẫu ban đầu">↺ Mẫu Demo</button>
+        </div>
+        <input type="search" id="docSearchInput" class="search-input" placeholder="🔍 Tìm tên tài liệu, chủ sở hữu..." />
+      </div>
+      <div id="docListContainer" class="doc-list"></div>
+    </aside>
+
+    <!-- CENTER STAGE: DOCUMENT HEADER + MODES + CANVAS -->
+    <main class="stage-center">
+      <!-- Document Metadata & Status Strip -->
+      <div class="doc-header-card">
+        <div class="doc-title-row">
+          <input id="docTitleInput" type="text" class="doc-title-input" placeholder="Tiêu đề tài liệu..." />
+          <span id="docStatusBadge" class="status-badge status-draft">DRAFT</span>
+          <button type="button" id="btnDeleteDoc" class="btn-icon-subtle" title="Xóa tài liệu này">🗑️</button>
+        </div>
+
+        <div class="doc-meta-row">
+          <div class="meta-item">
+            <span class="meta-label">Chuẩn đánh giá:</span>
+            <select id="profileSelect" class="compact-select"></select>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Chủ sở hữu:</span>
+            <span id="docOwnerLabel" class="meta-val">—</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Quy mô:</span>
+            <span id="docStatsLabel" class="meta-val">0 từ</span>
+          </div>
+          <div id="gateSummaryChip" class="gate-chip gate-warn" title="Nhấn để mở tab Phê duyệt">
+            ⏳ Đang kiểm tra cổng phê duyệt...
+          </div>
+        </div>
+      </div>
+
+      <!-- Cryptographic SHA-256 Seal Status / Tamper Alert Strip -->
+      <div id="sealStatusBanner" class="seal-banner hidden"></div>
+
+      <!-- Mode Switcher Bar -->
+      <div class="mode-bar">
+        <div class="mode-tabs">
+          <button type="button" class="mode-tab active" data-mode="review">
+            <span>📖 Rà soát</span>
+          </button>
+          <button type="button" class="mode-tab" data-mode="edit">
+            <span>✏️ Soạn thảo</span>
+            <span id="unsavedDot" class="unsaved-dot hidden">●</span>
+          </button>
+          <button type="button" class="mode-tab" data-mode="diff">
+            <span>🔀 Phiên bản</span>
+            <span id="versionCountBadge" class="tab-pill">1</span>
+          </button>
+          <button type="button" class="mode-tab" data-mode="analytics">
+            <span>📊 SLA &amp; Két PII</span>
+          </button>
+        </div>
+
+        <div class="mode-quick-tools">
+          <button type="button" id="btnQuickSnapshot" class="btn btn-sm btn-outline" title="Đóng gói phiên bản hiện tại vào lịch sử">
+            📸 Snapshot
+          </button>
+          <button type="button" id="btnOpenSignOff" class="btn btn-sm btn-success">
+            ✍️ Ký duyệt
+          </button>
+        </div>
+      </div>
+
+      <!-- MODE 1: INTERACTIVE REVIEW CANVAS + OUTLINE TOC + READABILITY & TTS -->
+      <section id="viewReview" class="stage-view">
+        <div class="canvas-guide-banner">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <button type="button" id="btnToggleToc" class="btn btn-xs btn-secondary" title="Ẩn/Hiện Cây Mục lục nhảy nhanh">
+              📑 Mục lục
+            </button>
+            <button type="button" id="btnToggleTts" class="btn btn-xs btn-secondary" title="Đọc phát âm tiếng Việt từng đoạn để bắt lỗi vấp câu">
+              🔊 Đọc soát TTS
+            </button>
+            <select id="ttsRateSelect" class="compact-select" title="Tốc độ giọng đọc">
+              <option value="0.9">0.9x</option>
+              <option value="1.05" selected>1.0x</option>
+              <option value="1.25">1.25x</option>
+              <option value="1.5">1.5x</option>
+            </select>
+            <span id="readabilityBadge" class="mini-pill" title="Chỉ số mạch lạc & dễ đọc của câu văn">📖 Dễ đọc: —</span>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+            <label class="toggle-inline" title="Tô màu vàng các câu dày ý và màu cam đỏ các câu quá dài > 40 từ">
+              <input type="checkbox" id="chkReadabilityHeatmap" />
+              <span>🎨 Heatmap Đọc hiểu</span>
+            </label>
+            <label class="toggle-inline">
+              <input type="checkbox" id="chkShowInlineDiff" checked />
+              <span>Hiện Track Changes</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="canvas-with-toc">
+          <nav id="outlineTocPanel" class="outline-toc-panel hidden">
+            <div class="toc-title">📑 CÂY MỤC LỤC</div>
+            <div id="outlineTocList" class="toc-list"></div>
+          </nav>
+          <article id="reviewCanvas" class="paper-canvas"></article>
+        </div>
+      </section>
+
+      <!-- MODE 2: MARKDOWN / SOURCE EDITOR -->
+      <section id="viewEdit" class="stage-view hidden">
+        <div class="editor-toolbar">
+          <div class="fmt-group">
+            <button type="button" class="fmt-btn" data-fmt="h2" title="Tiêu đề mục (H2)">H2</button>
+            <button type="button" class="fmt-btn" data-fmt="h3" title="Tiêu đề con (H3)">H3</button>
+            <button type="button" class="fmt-btn" data-fmt="bold" title="In đậm"><strong>B</strong></button>
+            <button type="button" class="fmt-btn" data-fmt="italic" title="In nghiêng"><em>I</em></button>
+            <button type="button" class="fmt-btn" data-fmt="bullet" title="Danh sách gạch đầu dòng">• Danh sách</button>
+            <button type="button" class="fmt-btn" data-fmt="table" title="Chèn bảng mẫu">⊞ Bảng</button>
+            <button type="button" class="fmt-btn" data-fmt="diagram" title="Chèn khối Sơ đồ Luồng Mermaid SVG">⬡ Sơ đồ Luồng</button>
+          </div>
+          <div class="editor-actions">
+            <span id="liveEditorCounter" class="editor-counter">0 từ</span>
+            <button type="button" id="btnCancelEdit" class="btn btn-sm btn-outline">Hoàn tác nháp</button>
+            <button type="button" id="btnSaveSource" class="btn btn-sm btn-primary">💾 Lưu & Chấm điểm lại (Ctrl+S)</button>
+          </div>
+        </div>
+        <textarea id="sourceTextarea" class="source-textarea" spellcheck="false" placeholder="Nhập nội dung Markdown hoặc văn bản tài liệu tại đây..."></textarea>
+      </section>
+
+      <!-- MODE 3: VERSION HISTORY & WORD-LEVEL DIFF -->
+      <section id="viewDiff" class="stage-view hidden">
+        <div class="diff-controls-card">
+          <div class="diff-selectors">
+            <div class="diff-field">
+              <label for="diffBaseSelect">Bản gốc đối chiếu (Base):</label>
+              <select id="diffBaseSelect" class="compact-select"></select>
+            </div>
+            <div class="diff-arrow">➔</div>
+            <div class="diff-field">
+              <label for="diffTargetSelect">Bản so sánh (Target):</label>
+              <select id="diffTargetSelect" class="compact-select"></select>
+            </div>
+            <button type="button" id="btnRunDiff" class="btn btn-sm btn-primary">🔍 Đối chiếu</button>
+            <button type="button" id="btnRestoreBase" class="btn btn-sm btn-outline" title="Khôi phục nội dung tài liệu về Bản gốc đang chọn">
+              ⏪ Khôi phục bản Base
+            </button>
+          </div>
+          <div class="diff-layout-switch">
+            <button type="button" class="chip-btn active" data-difflayout="unified">Gộp dòng (Unified)</button>
+            <button type="button" class="chip-btn" data-difflayout="split">Song song 2 cột (Side-by-Side)</button>
+          </div>
+        </div>
+
+        <div id="diffSummaryBar" class="diff-summary-bar"></div>
+        <div id="diffOutputContainer" class="diff-container"></div>
+      </section>
+
+      <!-- MODE 4: WORKSPACE SLA ANALYTICS, REVERSIBLE PII VAULT & CROSS-APP BRIDGES -->
+      <section id="viewAnalytics" class="stage-view hidden">
+        <div class="analytics-grid-top" id="analyticsKpiGrid"></div>
+
+        <div class="analytics-two-col">
+          <!-- Reversible PII Vault Card -->
+          <div class="hub-card">
+            <div class="hub-card-header">
+              <h3>🕵️‍♂️ Két Sắt Ẩn Dữ Liệu Nhạy Cảm Có Thể Khôi Phục (Reversible PII Vault)</h3>
+              <span id="piiDetectedBadge" class="mini-pill">0 PII</span>
+            </div>
+            <p class="hub-desc">
+              Tự động nhận diện <strong>CCCD, SĐT, Email, Mã số thuế, Số tài khoản, IP nội bộ & API Secret</strong> trong tài liệu đang mở. Mã hóa tạm thời thành thẻ <code>[PII_...]</code> trước khi gửi ra ngoài và khôi phục nguyên bản 100% bất kỳ lúc nào.
+            </p>
+            <div class="hub-actions">
+              <button type="button" id="btnRedactPiiVault" class="btn btn-sm btn-primary">
+                🕵️ Ẩn PII vào Két sắt ([PII_XX])
+              </button>
+              <button type="button" id="btnRestorePiiVault" class="btn btn-sm btn-success">
+                🔓 Khôi phục 100% Dữ liệu Gốc
+              </button>
+            </div>
+            <div id="piiVaultPreviewList" class="pii-vault-list"></div>
+          </div>
+
+          <!-- Ecosystem Cross-App Bridge Card -->
+          <div class="hub-card">
+            <div class="hub-card-header">
+              <h3>🔗 Cầu Nối Liên Thông Hệ Sinh Thái d:\AI_App</h3>
+              <span class="mini-pill">Cross-App Bridge</span>
+            </div>
+            <p class="hub-desc">
+              Kết nối trực tiếp tài liệu đang mở sang các trạm chuyên dụng khác trong hệ sinh thái <strong>NexusHub (Port 4000)</strong>:
+            </p>
+            <div class="bridge-btns">
+              <button type="button" id="btnBridgeContractShield" class="bridge-card-btn">
+                <strong>⚖️ Đẩy sang ContractShield (Port 4175)</strong>
+                <span>Quét 14 nhóm điều khoản bẫy pháp lý Việt Nam & tự động nhập cảnh báo vào luồng Blocker</span>
+              </button>
+              <button type="button" id="btnBridgeOmniTrace" class="bridge-card-btn">
+                <strong>🕸️ Đẩy sang OmniTrace OSINT (Port 4090)</strong>
+                <span>Trích xuất Domain, Email, SĐT, MST, IP đối tác trong tài liệu đẩy lên Đồ thị Điều tra OSINT</span>
+              </button>
+            </div>
+            <div id="bridgeResultBanner" class="env-banner hidden" style="margin-top:10px;"></div>
+          </div>
+        </div>
+
+        <div class="hub-card" style="margin-top:14px;">
+          <div class="hub-card-header">
+            <h3>📊 Bảng Xếp Hạng Tiến Độ & Điểm Nghẽn SLA Toàn Kho Tài Liệu</h3>
+          </div>
+          <div id="bottleneckTableWrap"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- RIGHT INSPECTOR PANEL -->
+    <aside class="sidebar-right">
+      <div class="inspector-tabs">
+        <button type="button" class="insp-tab active" data-tab="quality">
+          <span>🎯 Điểm</span> <span id="badgeQualityScore" class="tab-pill">0</span>
+        </button>
+        <button type="button" class="insp-tab" data-tab="comments">
+          <span>💬 Góp ý</span> <span id="badgeOpenComments" class="tab-pill">0</span>
+        </button>
+        <button type="button" class="insp-tab" data-tab="suggestions">
+          <span>✏️ Đề xuất</span> <span id="badgePendingSug" class="tab-pill">0</span>
+        </button>
+        <button type="button" class="insp-tab" data-tab="approval">
+          <span>🛡️ Duyệt</span>
+        </button>
+      </div>
+
+      <!-- TAB 1: QUALITY SCORE, RADAR & FINDINGS -->
+      <div id="tabQuality" class="insp-pane">
+        <div class="score-hero-card">
+          <div class="score-left">
+            <div id="scoreCircle" class="score-circle grade-b">
+              <span id="overallScoreNum">0</span>
+              <small>/100</small>
+            </div>
+            <div class="score-grade-tag">Hạng <strong id="overallGradeText">—</strong></div>
+          </div>
+          <div class="score-radar-wrap">
+            <svg id="radarSvg" viewBox="0 0 220 185" class="radar-svg"></svg>
+          </div>
+        </div>
+        <p id="qualityVerdictText" class="verdict-banner">—</p>
+
+        <div id="axisBarsContainer" class="axis-bars"></div>
+
+        <div class="section-block">
+          <div class="section-block-header">
+            <h3>📋 Danh mục Mục Bắt Buộc</h3>
+            <button type="button" id="btnInsertMissingSecs" class="link-btn hidden">+ Chèn khung mục thiếu</button>
+          </div>
+          <div id="sectionChecklistContainer" class="checklist-grid"></div>
+        </div>
+
+        <div class="section-block">
+          <div class="section-block-header">
+            <h3>🔎 Phát hiện Kiểm định Tự động (<span id="findingsTotalLabel">0</span>)</h3>
+            <button type="button" id="btnAutoNormalizeGlossary" class="btn btn-xs btn-accent hidden" title="Tự động sửa toàn bộ các từ sai quy ước trong Từ điển Thuật ngữ">
+              ✨ Chuẩn hóa Thuật ngữ
+            </button>
+          </div>
+          <div id="findingsListContainer" class="cards-stack"></div>
+        </div>
+      </div>
+
+      <!-- TAB 2: INLINE COMMENTS & THREADS -->
+      <div id="tabComments" class="insp-pane hidden">
+        <div class="pane-toolbar">
+          <div class="filter-pills" id="commentFilterGroup">
+            <button type="button" class="pill-btn active" data-cfilter="ALL">Tất cả</button>
+            <button type="button" class="pill-btn" data-cfilter="OPEN">Đang mở</button>
+            <button type="button" class="pill-btn" data-cfilter="BLOCKER">🔴 Blocker</button>
+            <button type="button" class="pill-btn" data-cfilter="RESOLVED">Đã xong</button>
+          </div>
+          <button type="button" id="btnAddGeneralComment" class="btn btn-xs btn-primary">+ Bình luận</button>
+        </div>
+
+        <!-- Inline Composer (ẩn cho tới khi bấm hoặc bôi đen) -->
+        <form id="commentComposer" class="composer-card hidden">
+          <div class="composer-header">
+            <strong>💬 Thêm bình luận mới</strong>
+            <button type="button" id="btnCloseCommentComposer" class="btn-close">✕</button>
+          </div>
+          <div id="commentQuotePreview" class="composer-quote hidden"></div>
+          <div class="composer-row">
+            <label for="commentCategorySelect">Phân loại:</label>
+            <select id="commentCategorySelect" class="compact-select">
+              <option value="BLOCKER">🔴 BLOCKER (Chặn phê duyệt)</option>
+              <option value="CLARITY" selected>🟠 CLARITY (Cần làm rõ / Định lượng)</option>
+              <option value="QUESTION">🔵 QUESTION (Câu hỏi thảo luận)</option>
+              <option value="NITPICK">⚪ NITPICK (Góp ý câu chữ nhỏ)</option>
+              <option value="PRAISE">🟢 PRAISE (Điểm viết tốt)</option>
+            </select>
+          </div>
+          <textarea id="commentTextInput" rows="3" placeholder="Nhập nhận xét cụ thể, lý do và hướng chỉnh sửa..." required></textarea>
+          <div class="composer-actions">
+            <button type="submit" class="btn btn-sm btn-primary">Gửi bình luận</button>
+          </div>
+        </form>
+
+        <div id="commentsListContainer" class="cards-stack"></div>
+      </div>
+
+      <!-- TAB 3: TRACK CHANGES (SUGGESTED EDITS) -->
+      <div id="tabSuggestions" class="insp-pane hidden">
+        <div class="pane-toolbar">
+          <span class="pane-hint">Đề xuất thay thế câu chữ trực tiếp</span>
+          <div style="display:flex;gap:6px;">
+            <button type="button" id="btnNewSuggestManual" class="btn btn-xs btn-outline">+ Tạo mới</button>
+            <button type="button" id="btnAcceptAllSug" class="btn btn-xs btn-success hidden">✅ Duyệt tất cả</button>
+          </div>
+        </div>
+
+        <!-- Suggestion Composer -->
+        <form id="suggestComposer" class="composer-card hidden">
+          <div class="composer-header">
+            <strong>✏️ Đề xuất sửa câu chữ (Track Change)</strong>
+            <button type="button" id="btnCloseSuggestComposer" class="btn-close">✕</button>
+          </div>
+          <label class="field-label">Đoạn gốc trong tài liệu (khớp chính xác):</label>
+          <textarea id="sugOriginalInput" rows="2" required placeholder="Dán hoặc bôi đen câu gốc cần thay thế..."></textarea>
+          <label class="field-label">Nội dung đề xuất thay thế:</label>
+          <textarea id="sugProposedInput" rows="3" required placeholder="Nhập câu chữ mới rõ ràng, chuẩn xác hơn..."></textarea>
+          <label class="field-label">Lý do đề xuất:</label>
+          <input type="text" id="sugReasonInput" class="text-input" placeholder="VD: Bổ sung ngưỡng SLA P99 & khóa chống trùng..." />
+          <div class="composer-actions">
+            <button type="submit" class="btn btn-sm btn-primary">Gửi Track Change</button>
+          </div>
+        </form>
+
+        <div id="suggestionsListContainer" class="cards-stack"></div>
+      </div>
+
+      <!-- TAB 4: APPROVAL GATE, SIGN-OFFS & AUDIT LOG -->
+      <div id="tabApproval" class="insp-pane hidden">
+        <div id="sealDetailCard" class="seal-detail-card hidden"></div>
+        <div id="readinessGateCard" class="gate-card"></div>
+
+        <form id="signOffForm" class="composer-card">
+          <div class="composer-header">
+            <strong>✍️ Ghi nhận Quyết định Thẩm định (Sign-Off)</strong>
+          </div>
+          <div class="composer-row">
+            <label for="signDecisionSelect">Quyết định:</label>
+            <select id="signDecisionSelect" class="compact-select">
+              <option value="APPROVED">✅ Phê duyệt ban hành (APPROVED)</option>
+              <option value="CHANGES_REQUESTED">⚠️ Yêu cầu chỉnh sửa (CHANGES_REQUESTED)</option>
+              <option value="IN_REVIEW">🔍 Xác nhận đang thẩm định (IN_REVIEW)</option>
+            </select>
+          </div>
+          <textarea id="signNoteInput" rows="2" placeholder="Ghi chú nghiệm thu hoặc điều kiện kèm theo..."></textarea>
+          <label id="overrideGateWrap" class="checkbox-row hidden">
+            <input type="checkbox" id="chkForceOverride" />
+            <span>Phê duyệt ngoại lệ (Override cổng kiểm soát có lưu vết kiểm toán)</span>
+          </label>
+          <div class="composer-actions">
+            <button type="submit" class="btn btn-sm btn-success">Ký xác nhận quyết định</button>
+          </div>
+        </form>
+
+        <div class="section-block">
+          <h3>🏅 Chữ ký Phê duyệt Đã Ghi nhận</h3>
+          <div id="approvalsListContainer" class="cards-stack"></div>
+        </div>
+
+        <div class="section-block">
+          <h3>📜 Nhật ký Kiểm toán (Audit Trail)</h3>
+          <div id="auditLogContainer" class="audit-timeline"></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- MODAL 1: TẠO TÀI LIỆU MỚI -->
+  <div id="modalNewDoc" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>➕ Khởi tạo Tài liệu Rà soát Mới</h3>
+        <button type="button" class="btn-close" data-close-modal="modalNewDoc">✕</button>
+      </div>
+      <form id="formNewDoc">
+        <label class="field-label">Tiêu đề tài liệu:</label>
+        <input type="text" id="newDocTitle" class="text-input" required placeholder="VD: PRD Hệ thống Định danh eKYC v3.0" />
+
+        <label class="field-label">Bộ tiêu chuẩn chấm điểm (Rubric Profile):</label>
+        <select id="newDocProfile" class="text-input"></select>
+
+        <label class="field-label">Khởi tạo nội dung:</label>
+        <select id="newDocTemplateMode" class="text-input">
+          <option value="skeleton">Tạo sẵn khung đề mục chuẩn theo Bộ tiêu chí đã chọn</option>
+          <option value="blank">Trang trống để tự dán văn bản</option>
+        </select>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-close-modal="modalNewDoc">Hủy</button>
+          <button type="submit" class="btn btn-primary">Tạo tài liệu</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: LƯU MỐC SNAPSHOT PHIÊN BẢN -->
+  <div id="modalSnapshot" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>📸 Lưu Mốc Phiên Bản (Version Snapshot)</h3>
+        <button type="button" class="btn-close" data-close-modal="modalSnapshot">✕</button>
+      </div>
+      <form id="formSnapshot">
+        <label class="field-label">Nhãn phiên bản:</label>
+        <input type="text" id="snapLabelInput" class="text-input" required placeholder="VD: v1.2 — Đã xử lý toàn bộ góp ý Bảo mật & SLA" />
+        <label class="field-label">Tóm tắt thay đổi chính:</label>
+        <textarea id="snapNoteInput" rows="3" class="text-input" placeholder="Ghi chú ngắn gọn những điểm đã cập nhật trong mốc này..."></textarea>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-close-modal="modalSnapshot">Hủy</button>
+          <button type="submit" class="btn btn-primary">Đóng gói Snapshot</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 3: AI DEEP REVIEW (OPTIONAL) -->
+  <div id="modalAiReview" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>🤖 AI Deep Review (Mở rộng Tùy chọn)</h3>
+        <button type="button" class="btn-close" data-close-modal="modalAiReview">✕</button>
+      </div>
+      <form id="formAiReview">
+        <p class="modal-desc">
+          Mặc định DocReview Studio chấm điểm <strong>100% Cục bộ (Offline)</strong>. Nếu muốn gọi thêm mô hình ngôn ngữ lớn để sinh Bình luận & Track Changes tự động, hãy chọn nhà cung cấp bên dưới (khóa chỉ dùng trong yêu cầu này, không ghi ra đĩa).
+        </p>
+        <div id="aiEnvStatusBanner" class="env-banner"></div>
+
+        <label class="field-label">Nhà cung cấp mô hình:</label>
+        <select id="aiProviderSelect" class="text-input">
+          <option value="auto">Tự động nhận diện (.env hoặc khóa nhập bên dưới)</option>
+          <option value="gemini">Google Gemini API (gemini-2.5-flash)</option>
+          <option value="openai">OpenAI API (gpt-4o-mini)</option>
+        </select>
+
+        <label class="field-label">API Key tạm trong phiên (để trống nếu đã khai báo trong .env):</label>
+        <input type="password" id="aiApiKeyInput" class="text-input" placeholder="AIza... hoặc sk-..." autocomplete="off" />
+
+        <label class="checkbox-row" style="margin-top:8px;color:var(--success);">
+          <input type="checkbox" id="chkMaskPiiBeforeAi" checked />
+          <span>🛡️ Tự động che CCCD/SĐT/Email/STK qua Két sắt PII trước khi gửi lên Cloud AI</span>
+        </label>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-close-modal="modalAiReview">Đóng</button>
+          <button type="submit" id="btnSubmitAiReview" class="btn btn-accent">🚀 Chạy AI Phân Tích & Gắn Góp Ý</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 4: QUẢN TRỊ TỪ ĐIỂN THUẬT NGỮ & BỘ TIÊU CHÍ RIÊNG (GOVERNANCE STUDIO) -->
+  <div id="modalGovernance" class="modal-backdrop hidden">
+    <div class="modal-card modal-wide">
+      <div class="modal-header">
+        <h3>🛠️ Quản Trị Từ Điển Thuật Ngữ & Bộ Tiêu Chí Chấm Điểm Riêng</h3>
+        <button type="button" class="btn-close" data-close-modal="modalGovernance">✕</button>
+      </div>
+
+      <div class="gov-tabs">
+        <button type="button" class="chip-btn active" data-govtab="glossary">📖 Từ Điển Thuật Ngữ Chuẩn (Glossary Enforcer)</button>
+        <button type="button" class="chip-btn" data-govtab="rubric">🧩 Tạo Bộ Tiêu Chí Riêng (Custom Rubric)</button>
+      </div>
+
+      <!-- GOV PANE 1: GLOSSARY ENFORCER -->
+      <div id="govPaneGlossary" class="gov-pane">
+        <p class="modal-desc">
+          Mọi từ viết sai quy ước sẽ tự động bị bắt lỗi trong trục <strong>Nhất quán & Logic</strong> và cho phép chuẩn hóa hàng loạt 1-Click (tự động bỏ qua vùng code <code>`...`</code>).
+        </p>
+
+        <form id="formAddGlossary" class="gov-inline-form">
+          <input type="text" id="glWrongInput" class="text-input" placeholder="Từ chưa chuẩn (VD: Smartpay, CMND)" required />
+          <span style="font-weight:800;color:var(--primary);">➔</span>
+          <input type="text" id="glPreferredInput" class="text-input" placeholder="Thuật ngữ bắt buộc (VD: SmartPay, CCCD)" required />
+          <label class="toggle-inline" style="font-size:11.5px;">
+            <input type="checkbox" id="glCaseSensitive" />
+            <span>Phân biệt HOA/thường</span>
+          </label>
+          <button type="submit" class="btn btn-sm btn-primary">+ Thêm quy tắc</button>
+        </form>
+
+        <div id="glossaryRulesList" class="gov-list"></div>
+      </div>
+
+      <!-- GOV PANE 2: CUSTOM RUBRIC BUILDER -->
+      <div id="govPaneRubric" class="gov-pane hidden">
+        <div class="gov-split">
+          <div>
+            <h4 style="margin:0 0 8px;font-size:13px;">➕ Tạo / Cập nhật Bộ Tiêu Chí Mới</h4>
+            <form id="formSaveCustomRubric">
+              <div style="display:grid;grid-template-columns:70px 1fr;gap:8px;">
+                <div>
+                  <label class="field-label">Icon:</label>
+                  <input type="text" id="crIconInput" class="text-input" value="🧩" maxlength="4" />
+                </div>
+                <div>
+                  <label class="field-label">Tên bộ tiêu chí:</label>
+                  <input type="text" id="crNameInput" class="text-input" required placeholder="VD: Chuẩn Thiết Kế Bảo Mật Cloud" />
+                </div>
+              </div>
+
+              <label class="field-label">Các mục bắt buộc (mỗi dòng: <code>Tên đề mục | từ khóa 1, từ khóa 2</code>):</label>
+              <textarea id="crSectionsInput" rows="4" class="text-input" required placeholder="Mô hình Đe dọa (Threat Model) | threat model, bề mặt tấn công, rủi ro&#10;Phân quyền & Mã hóa | iam, mã hóa, kms, tls&#10;Giám sát & Cảnh báo | audit log, siem, cảnh báo"></textarea>
+
+              <label class="field-label">Các cụm từ cấm sử dụng (phân cách bằng dấu phẩy, tùy chọn):</label>
+              <input type="text" id="crForbiddenInput" class="text-input" placeholder="VD: tắt xác thực, dùng chung mật khẩu, mở cổng 0.0.0.0" />
+
+              <div style="margin-top:10px;text-align:right;">
+                <button type="submit" class="btn btn-sm btn-primary">💾 Lưu Bộ Tiêu Chí</button>
+              </div>
+            </form>
+          </div>
+
+          <div>
+            <h4 style="margin:0 0 8px;font-size:13px;">📚 Các Bộ Tiêu Chí Tùy Chỉnh Hiện Có</h4>
+            <div id="customRubricsList" class="gov-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 5: COMMAND PALETTE (CTRL+K) -->
+  <div id="modalCommandPalette" class="modal-backdrop hidden">
+    <div class="cmd-palette-card">
+      <div class="cmd-search-row">
+        <span>⚡</span>
+        <input type="text" id="cmdSearchInput" placeholder="Gõ lệnh nhanh, tên tài liệu hoặc đề mục cần nhảy tới... (↑↓ chọn, Enter chạy, Esc đóng)" autocomplete="off" />
+        <kbd class="kbd-tag">ESC</kbd>
+      </div>
+      <div id="cmdResultsList" class="cmd-results-list"></div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="/app.js?v=3.1"></script>
+</body>
+</html>

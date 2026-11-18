@@ -1,0 +1,22 @@
+{
+  "name": "doc-review",
+  "version": "3.0.0",
+  "description": "DocReview Studio v3.0 — Trạm Rà Soát 5 Trục, Két Sắt PII, Readability Heatmap & TTS, Sơ Đồ SVG, Ctrl+K, Realtime SSE, Niêm Phong SHA-256 & Liên Thông Hệ Sinh Thái (.DOCX / .PDF / .MD)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test tests/doc-review.test.js"
+  },
+  "keywords": [
+    "document-review",
+    "track-changes",
+    "inline-comments",
+    "quality-scoring",
+    "version-diff",
+    "approval-workflow",
+    "docx",
+    "markdown"
+  ],
+  "author": "AI_App Ecosystem",
+  "license": "MIT"
+}
